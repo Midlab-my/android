@@ -2,6 +2,8 @@ package com.mindlab.worky;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.CheckBox;
@@ -14,12 +16,15 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
 import com.mindlab.worky.auth.AuthSession;
 import com.mindlab.worky.auth.SessionStore;
 import com.mindlab.worky.auth.SupabaseAuthClient;
 import com.mindlab.worky.data.CompanyRepository;
+import com.mindlab.worky.network.CepClient;
 import com.mindlab.worky.network.SupabaseConfig;
 import com.mindlab.worky.ui.WorkyNav;
+import com.mindlab.worky.util.BrDocs;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -46,7 +51,11 @@ public class CompanySignupActivity extends AppCompatActivity {
     private TextInputEditText inputEmail;
     private TextInputEditText inputPassword;
     private TextInputEditText inputPasswordConfirm;
+    private TextInputLayout layoutCnpj;
+    private TextInputLayout layoutCep;
+    private TextInputLayout layoutLocation;
     private TextInputEditText inputCnpj;
+    private TextInputEditText inputCep;
     private TextInputEditText inputLocation;
     private TextInputEditText inputLinkedin;
     private Spinner spinnerSize;
@@ -55,6 +64,8 @@ public class CompanySignupActivity extends AppCompatActivity {
     private ProgressBar progress;
     private TextView status;
     private MaterialButton btnSignup;
+    private boolean maskingCnpj;
+    private boolean maskingCep;
     private final ExecutorService io = Executors.newSingleThreadExecutor();
 
     @Override
@@ -71,7 +82,11 @@ public class CompanySignupActivity extends AppCompatActivity {
         inputEmail = findViewById(R.id.inputCompanyEmail);
         inputPassword = findViewById(R.id.inputCompanyPassword);
         inputPasswordConfirm = findViewById(R.id.inputCompanyPasswordConfirm);
+        layoutCnpj = findViewById(R.id.layoutCompanyCnpj);
+        layoutCep = findViewById(R.id.layoutCompanyCep);
+        layoutLocation = findViewById(R.id.layoutCompanyLocation);
         inputCnpj = findViewById(R.id.inputCompanyCnpj);
+        inputCep = findViewById(R.id.inputCompanyCep);
         inputLocation = findViewById(R.id.inputCompanyLocation);
         inputLinkedin = findViewById(R.id.inputCompanyLinkedin);
         spinnerSize = findViewById(R.id.spinnerCompanySize);
@@ -86,6 +101,9 @@ public class CompanySignupActivity extends AppCompatActivity {
         spinnerSize.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, SIZES));
         spinnerSector.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, SECTORS));
 
+        bindCnpjMask();
+        bindCepLookup();
+
         if (!SupabaseConfig.isConfigured()) {
             status.setText(R.string.login_missing_config);
             btnNext.setEnabled(false);
@@ -99,24 +117,95 @@ public class CompanySignupActivity extends AppCompatActivity {
         showStep(1);
     }
 
+    private void bindCnpjMask() {
+        inputCnpj.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override
+            public void afterTextChanged(Editable s) {
+                if (maskingCnpj) return;
+                maskingCnpj = true;
+                String formatted = BrDocs.formatCnpj(s.toString());
+                if (!formatted.equals(s.toString())) {
+                    inputCnpj.setText(formatted);
+                    inputCnpj.setSelection(formatted.length());
+                }
+                layoutCnpj.setError(null);
+                maskingCnpj = false;
+            }
+        });
+    }
+
+    private void bindCepLookup() {
+        inputCep.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override
+            public void afterTextChanged(Editable s) {
+                if (maskingCep) return;
+                maskingCep = true;
+                String formatted = BrDocs.formatCep(s.toString());
+                if (!formatted.equals(s.toString())) {
+                    inputCep.setText(formatted);
+                    inputCep.setSelection(formatted.length());
+                }
+                layoutCep.setError(null);
+                maskingCep = false;
+
+                if (BrDocs.onlyDigits(formatted, 8).length() == 8) {
+                    lookupCep(formatted);
+                }
+            }
+        });
+    }
+
+    private void lookupCep(String cep) {
+        layoutCep.setHelperText(getString(R.string.cep_looking_up));
+        io.execute(() -> {
+            try {
+                CepClient.CepResult result = new CepClient().lookup(cep);
+                runOnUiThread(() -> {
+                    inputLocation.setText(result.locationLabel);
+                    layoutLocation.setError(null);
+                    layoutCep.setHelperText(getString(R.string.cep_ok));
+                    layoutCep.setError(null);
+                });
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    inputLocation.setText("");
+                    layoutCep.setHelperText(null);
+                    layoutCep.setError(e.getMessage() != null ? e.getMessage() : "CEP invalido.");
+                });
+            }
+        });
+    }
+
     private void goStep2() {
         String name = textOf(inputName);
         String email = textOf(inputEmail);
         String password = textOf(inputPassword);
         String confirm = textOf(inputPasswordConfirm);
 
-        if (name.length() < 3 || email.isEmpty() || password.isEmpty()) {
+        boolean ok = true;
+        if (name.length() < 3) {
             Toast.makeText(this, R.string.company_signup_step1_empty, Toast.LENGTH_SHORT).show();
-            return;
+            ok = false;
         }
-        if (password.length() < 8) {
-            Toast.makeText(this, R.string.signup_password_short_8, Toast.LENGTH_SHORT).show();
-            return;
+        String emailErr = BrDocs.emailErrorMessage(email);
+        if (emailErr != null) {
+            Toast.makeText(this, emailErr, Toast.LENGTH_SHORT).show();
+            ok = false;
+        }
+        String passErr = BrDocs.passwordErrorMessage(password);
+        if (passErr != null) {
+            Toast.makeText(this, passErr, Toast.LENGTH_SHORT).show();
+            ok = false;
         }
         if (!password.equals(confirm)) {
             Toast.makeText(this, R.string.signup_password_mismatch, Toast.LENGTH_SHORT).show();
-            return;
+            ok = false;
         }
+        if (!ok) return;
         showStep(2);
     }
 
@@ -138,23 +227,45 @@ public class CompanySignupActivity extends AppCompatActivity {
     }
 
     private void submit() {
+        layoutCnpj.setError(null);
+        layoutCep.setError(null);
+        layoutLocation.setError(null);
+
         String name = textOf(inputName);
         String email = textOf(inputEmail);
         String password = textOf(inputPassword);
-        String cnpj = textOf(inputCnpj);
+        String cnpjRaw = textOf(inputCnpj);
+        String cep = textOf(inputCep);
         String location = textOf(inputLocation);
         String linkedin = textOf(inputLinkedin);
         String size = SIZES[Math.max(0, spinnerSize.getSelectedItemPosition())];
         String sector = SECTORS[Math.max(0, spinnerSector.getSelectedItemPosition())];
 
-        if (cnpj.isEmpty() || location.isEmpty()) {
-            Toast.makeText(this, R.string.company_signup_empty, Toast.LENGTH_SHORT).show();
+        String cnpjErr = BrDocs.cnpjErrorMessage(cnpjRaw);
+        if (cnpjErr != null) {
+            layoutCnpj.setError(cnpjErr);
+            return;
+        }
+        String cepErr = BrDocs.cepErrorMessage(cep);
+        if (cepErr != null) {
+            layoutCep.setError(cepErr);
+            return;
+        }
+        if (location.isEmpty()) {
+            layoutLocation.setError("Consulte um CEP valido para preencher a cidade.");
+            return;
+        }
+        String linkedInErr = BrDocs.linkedInErrorMessage(linkedin);
+        if (linkedInErr != null) {
+            Toast.makeText(this, linkedInErr, Toast.LENGTH_SHORT).show();
             return;
         }
         if (!checkTerms.isChecked()) {
             Toast.makeText(this, R.string.terms_required, Toast.LENGTH_SHORT).show();
             return;
         }
+
+        String cnpj = BrDocs.onlyDigits(cnpjRaw, 14);
 
         setLoading(true, getString(R.string.signing_up));
         SupabaseAuthClient auth = new SupabaseAuthClient();
@@ -184,8 +295,18 @@ public class CompanySignupActivity extends AppCompatActivity {
                     return;
                 }
 
-                companyRepo.createCompanyProfile(session, name, size, cnpj, location, sector, linkedin);
-                store.save(session);
+                AuthSession companySession = new AuthSession(
+                        session.accessToken,
+                        session.refreshToken,
+                        session.expiresAt,
+                        session.tokenType,
+                        session.userId,
+                        session.email,
+                        session.name,
+                        "empresa"
+                );
+                companyRepo.createCompanyProfile(companySession, name, size, cnpj, location, sector, linkedin);
+                store.save(companySession);
 
                 runOnUiThread(() -> {
                     setLoading(false, "Empresa criada.");

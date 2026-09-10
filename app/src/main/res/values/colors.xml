@@ -13,5 +13,7 @@
     <color name="worky_card_dark">#FF0F172A</color>
     <color name="worky_card_teal">#FF14B8A6</color>
     <color name="worky_card_yellow">#FFFEF3C7</color>
+    <color name="worky_card_companies_start">#FF1C1917</color>
+    <color name="worky_card_companies_end">#FFEA580C</color>
     <color name="worky_ad_bg">#FF0F172A</color>
 </resources>

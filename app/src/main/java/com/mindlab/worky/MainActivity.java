@@ -103,6 +103,7 @@ public class MainActivity extends AppCompatActivity {
         MaterialButton btnPlans = findViewById(R.id.btnPlans);
         MaterialButton btnOpenSearch = findViewById(R.id.btnOpenSearch);
         MaterialButton btnHomeProfileCta = findViewById(R.id.btnHomeProfileCta);
+        MaterialButton btnHomeCompaniesCta = findViewById(R.id.btnHomeCompaniesCta);
         TextView textFilterSummary = findViewById(R.id.textFilterSummary);
         RecyclerView recyclerRecent = findViewById(R.id.recyclerRecent);
 
@@ -119,10 +120,12 @@ public class MainActivity extends AppCompatActivity {
         btnOpenSearch.setOnClickListener(v -> openSearchSheet());
         inputCargo.setOnClickListener(v -> openSearchSheet());
         btnHomeProfileCta.setOnClickListener(v -> openProfile());
+        btnHomeCompaniesCta.setOnClickListener(v -> openCompaniesCatalog());
         findViewById(R.id.cardSalary).setOnClickListener(v -> openSearchSheet());
         findViewById(R.id.cardSkills).setOnClickListener(v -> openSearchSheet());
         findViewById(R.id.cardJobsLive).setOnClickListener(v -> openJobs());
         findViewById(R.id.cardProfile).setOnClickListener(v -> openProfile());
+        findViewById(R.id.cardCompanies).setOnClickListener(v -> openCompaniesCatalog());
 
         setupHomeTags();
         setupAdMarquee();
@@ -316,16 +319,26 @@ public class MainActivity extends AppCompatActivity {
             startActivity(new Intent(this, LoginActivity.class));
             return;
         }
+        AuthSession session = sessionStore.get();
+        if (session != null && session.isCompany()) {
+            startActivity(new Intent(this, CompanyActivity.class));
+            return;
+        }
         startActivity(new Intent(this, ProfileActivity.class));
     }
 
     private void openCompany() {
         if (!sessionStore.isLoggedIn()) {
             Toast.makeText(this, R.string.login_required, Toast.LENGTH_SHORT).show();
-            startActivity(new Intent(this, LoginActivity.class));
+            Intent intent = new Intent(this, LoginActivity.class);
+            startActivity(intent);
             return;
         }
         startActivity(new Intent(this, CompanyActivity.class));
+    }
+
+    private void openCompaniesCatalog() {
+        startActivity(new Intent(this, CompaniesActivity.class));
     }
 
     private void reloadRecent() {

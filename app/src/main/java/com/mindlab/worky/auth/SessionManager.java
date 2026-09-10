@@ -58,6 +58,19 @@ public class SessionManager {
         }
         try {
             AuthSession refreshed = auth.refresh(session.refreshToken);
+            if ((refreshed.accountType == null || refreshed.accountType.isEmpty())
+                    && session.accountType != null && !session.accountType.isEmpty()) {
+                refreshed = new AuthSession(
+                        refreshed.accessToken,
+                        refreshed.refreshToken,
+                        refreshed.expiresAt,
+                        refreshed.tokenType,
+                        refreshed.userId,
+                        refreshed.email,
+                        refreshed.name,
+                        session.accountType
+                );
+            }
             store.save(refreshed);
             return refreshed;
         } catch (IOException e) {

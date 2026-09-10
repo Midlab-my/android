@@ -59,6 +59,46 @@ public class CompanyRepository {
         return mapProfile(rows.get(0).getAsJsonObject());
     }
 
+    /**
+     * Se account_type=empresa e ainda nao ha row (ex: confirmacao de e-mail), cria a partir do metadata.
+     */
+    @Nullable
+    public CompanyProfile ensureCompanyProfileFromMetadata(
+            @NonNull AuthSession session,
+            @NonNull JsonObject meta
+    ) throws IOException {
+        String accountType = text(meta, "account_type");
+        if (accountType.isEmpty()) accountType = text(meta, "accountType");
+        if (!"empresa".equalsIgnoreCase(accountType) && !session.isCompany()) {
+            return null;
+        }
+
+        CompanyProfile existing = fetchCompanyProfile(session);
+        if (existing != null) return existing;
+
+        String companyName = text(meta, "company_name");
+        if (companyName.isEmpty()) companyName = text(meta, "full_name");
+        if (companyName.isEmpty()) companyName = text(meta, "name");
+        if (companyName.isEmpty()) companyName = session.name;
+        if (companyName.isEmpty()) companyName = "Empresa Worky";
+
+        return createCompanyProfile(
+                session,
+                companyName,
+                text(meta, "company_size"),
+                text(meta, "company_cnpj"),
+                text(meta, "company_location"),
+                text(meta, "company_sector"),
+                text(meta, "company_linkedin")
+        );
+    }
+
+    private static String text(JsonObject obj, String key) {
+        if (obj == null || !obj.has(key) || obj.get(key).isJsonNull()) return "";
+        JsonElement el = obj.get(key);
+        return el.isJsonPrimitive() ? el.getAsString().trim() : "";
+    }
+
     @NonNull
     public List<CompanyJob> listJobs(@NonNull AuthSession session) throws IOException {
         assertConfigured();
@@ -426,12 +466,6 @@ public class CompanyRepository {
 
     private static String safe(String value) {
         return value == null ? "" : value.trim();
-    }
-
-    private static String text(JsonObject obj, String key) {
-        if (obj == null || !obj.has(key) || obj.get(key).isJsonNull()) return "";
-        JsonElement el = obj.get(key);
-        return el.isJsonPrimitive() ? el.getAsString().trim() : "";
     }
 
     private static String enc(String value) throws IOException {

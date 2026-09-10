@@ -16,6 +16,7 @@ public class SessionStore {
     private static final String K_USER_ID = "user_id";
     private static final String K_EMAIL = "email";
     private static final String K_NAME = "name";
+    private static final String K_ACCOUNT = "account_type";
 
     private final SharedPreferences prefs;
 
@@ -32,6 +33,7 @@ public class SessionStore {
                 .putString(K_USER_ID, session.userId)
                 .putString(K_EMAIL, session.email)
                 .putString(K_NAME, session.name)
+                .putString(K_ACCOUNT, session.accountType)
                 .apply();
     }
 
@@ -49,7 +51,8 @@ public class SessionStore {
                 prefs.getString(K_TYPE, "bearer"),
                 prefs.getString(K_USER_ID, ""),
                 prefs.getString(K_EMAIL, ""),
-                prefs.getString(K_NAME, "")
+                prefs.getString(K_NAME, ""),
+                prefs.getString(K_ACCOUNT, "")
         );
     }
 

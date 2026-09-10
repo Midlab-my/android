@@ -394,6 +394,61 @@
                     android:text="@string/home_card_profile_cta" />
             </LinearLayout>
 
+            <LinearLayout
+                android:id="@+id/cardCompanies"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:orientation="vertical"
+                android:padding="16dp"
+                android:background="@drawable/bg_home_card_companies">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/home_card_companies_label"
+                    android:textColor="#FFFED7AA"
+                    android:textAllCaps="true"
+                    android:textSize="11sp"
+                    android:letterSpacing="0.06" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="@string/home_card_companies_title"
+                    android:textColor="@color/white"
+                    android:textStyle="bold"
+                    android:textSize="16sp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="@string/home_card_companies_text"
+                    android:textColor="#E0FFF7ED"
+                    android:textSize="13sp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="NT · AD · HR · PF · OD"
+                    android:textColor="@color/white"
+                    android:textStyle="bold"
+                    android:textSize="12sp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnHomeCompaniesCta"
+                    style="@style/Widget.Material3.Button"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:backgroundTint="@color/white"
+                    android:textColor="#FFC2410C"
+                    android:text="@string/home_card_companies_cta" />
+            </LinearLayout>
+
             <!-- Slot de propaganda inferior -->
             <LinearLayout
                 android:layout_width="match_parent"

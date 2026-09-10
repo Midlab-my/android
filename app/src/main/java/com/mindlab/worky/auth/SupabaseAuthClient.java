@@ -8,6 +8,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.mindlab.worky.network.SupabaseConfig;
+import com.mindlab.worky.util.BrDocs;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -237,6 +238,7 @@ public class SupabaseAuthClient {
         String userId = "";
         String email = "";
         String name = "";
+        String accountType = "";
         if (root.has("user") && root.get("user").isJsonObject()) {
             JsonObject user = root.getAsJsonObject("user");
             userId = text(user, "id");
@@ -245,10 +247,39 @@ public class SupabaseAuthClient {
                 JsonObject meta = user.getAsJsonObject("user_metadata");
                 name = text(meta, "full_name");
                 if (name.isEmpty()) name = text(meta, "name");
+                accountType = text(meta, "account_type");
+                if (accountType.isEmpty()) accountType = text(meta, "accountType");
             }
         }
 
-        return new AuthSession(access, refresh, expiresAt, tokenType, userId, email, name);
+        return new AuthSession(access, refresh, expiresAt, tokenType, userId, email, name, accountType);
+    }
+
+    /**
+     * Metadata do usuario autenticado (para hidratar company_profiles apos confirmacao de e-mail).
+     */
+    @NonNull
+    public JsonObject fetchUserMetadata(@NonNull AuthSession session) throws IOException {
+        assertConfigured();
+        Request request = new Request.Builder()
+                .url(SupabaseConfig.url() + "/auth/v1/user")
+                .get()
+                .header("apikey", SupabaseConfig.anonKey())
+                .header("Authorization", "Bearer " + session.accessToken)
+                .build();
+
+        try (Response response = client.newCall(request).execute()) {
+            String raw = readBody(response);
+            if (!response.isSuccessful()) {
+                throw new IOException(extractError(raw, "Falha ao carregar usuario."));
+            }
+            JsonObject user = gson.fromJson(raw, JsonObject.class);
+            if (user == null) return new JsonObject();
+            if (user.has("user_metadata") && user.get("user_metadata").isJsonObject()) {
+                return user.getAsJsonObject("user_metadata");
+            }
+            return new JsonObject();
+        }
     }
 
     private static void assertConfigured() throws IOException {
@@ -267,17 +298,19 @@ public class SupabaseAuthClient {
     private static String extractError(String raw, String fallback) {
         try {
             JsonObject obj = new Gson().fromJson(raw, JsonObject.class);
-            if (obj == null) return fallback;
+            if (obj == null) return BrDocs.translateAuthError(fallback, fallback);
             for (String key : new String[]{"msg", "message", "error_description", "error"}) {
                 if (obj.has(key) && obj.get(key).isJsonPrimitive()) {
                     String value = obj.get(key).getAsString();
-                    if (value != null && !value.trim().isEmpty()) return value.trim();
+                    if (value != null && !value.trim().isEmpty()) {
+                        return BrDocs.translateAuthError(value.trim(), fallback);
+                    }
                 }
             }
         } catch (Exception ignored) {
             // keep fallback
         }
-        return fallback;
+        return BrDocs.translateAuthError(fallback, fallback);
     }
 
     private static String text(JsonObject obj, String key) {

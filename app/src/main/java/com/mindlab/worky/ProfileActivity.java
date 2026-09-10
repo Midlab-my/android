@@ -34,6 +34,15 @@ public class ProfileActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        SessionManager sessions = new SessionManager(this);
+        AuthSession peek = sessions.peek();
+        if (peek != null && peek.isCompany()) {
+            startActivity(new Intent(this, CompanyActivity.class));
+            finish();
+            return;
+        }
+
         setContentView(R.layout.activity_profile);
         com.mindlab.worky.ui.WorkyNav.bindFromContent(this, getString(R.string.profile_title));
 
@@ -46,7 +55,6 @@ public class ProfileActivity extends AppCompatActivity {
         btnSave = findViewById(R.id.btnSaveProfile);
         btnToMatch = findViewById(R.id.btnProfileToMatch);
 
-        SessionManager sessions = new SessionManager(this);
         if (!sessions.isLoggedIn()) {
             Toast.makeText(this, R.string.login_required, Toast.LENGTH_LONG).show();
             startActivity(new Intent(this, LoginActivity.class));

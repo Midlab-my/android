@@ -22,11 +22,13 @@ import com.google.android.material.button.MaterialButton;
 import com.mindlab.worky.auth.AuthSession;
 import com.mindlab.worky.auth.SessionManager;
 import com.mindlab.worky.auth.SessionStore;
+import com.mindlab.worky.auth.SupabaseAuthClient;
 import com.mindlab.worky.data.CompanyRepository;
 import com.mindlab.worky.model.CompanyCandidate;
 import com.mindlab.worky.model.CompanyJob;
 import com.mindlab.worky.model.CompanyProfile;
 import com.mindlab.worky.network.ApiConfig;
+import com.google.gson.JsonObject;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -187,6 +189,32 @@ public class CompanyActivity extends AppCompatActivity {
                 AuthSession session = ensureSession();
                 CompanyProfile profile = repository.fetchCompanyProfile(session);
                 if (profile == null) {
+                    try {
+                        JsonObject meta = new SupabaseAuthClient().fetchUserMetadata(session);
+                        profile = repository.ensureCompanyProfileFromMetadata(session, meta);
+                        String accountType = "";
+                        if (meta.has("account_type") && meta.get("account_type").isJsonPrimitive()) {
+                            accountType = meta.get("account_type").getAsString();
+                        }
+                        if ("empresa".equalsIgnoreCase(accountType) && !session.isCompany()) {
+                            AuthSession patched = new AuthSession(
+                                    session.accessToken,
+                                    session.refreshToken,
+                                    session.expiresAt,
+                                    session.tokenType,
+                                    session.userId,
+                                    session.email,
+                                    session.name,
+                                    "empresa"
+                            );
+                            new SessionStore(this).save(patched);
+                            session = patched;
+                        }
+                    } catch (Exception ignored) {
+                        // segue para dialog se ainda null
+                    }
+                }
+                if (profile == null) {
                     runOnUiThread(() -> {
                         setLoading(false, getString(R.string.company_not_found));
                         textCompanyName.setText(R.string.company_title);
@@ -204,14 +232,16 @@ public class CompanyActivity extends AppCompatActivity {
                     });
                     return;
                 }
+                // Copia final: profile foi reatribuido acima e nao pode entrar no lambda
+                final CompanyProfile loaded = profile;
                 List<CompanyJob> nextJobs = repository.listJobs(session);
                 runOnUiThread(() -> {
-                    company = profile;
-                    textCompanyName.setText(profile.companyName.isEmpty() ? "Empresa" : profile.companyName);
+                    company = loaded;
+                    textCompanyName.setText(loaded.companyName.isEmpty() ? "Empresa" : loaded.companyName);
                     textCompanyMeta.setText(
-                            "Plano " + profile.planLabel()
-                                    + (profile.location.isEmpty() ? "" : " · " + profile.location)
-                                    + (profile.sector.isEmpty() ? "" : " · " + profile.sector)
+                            "Plano " + loaded.planLabel()
+                                    + (loaded.location.isEmpty() ? "" : " · " + loaded.location)
+                                    + (loaded.sector.isEmpty() ? "" : " · " + loaded.sector)
                     );
                     jobs.clear();
                     jobs.addAll(nextJobs);

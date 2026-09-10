@@ -11,6 +11,8 @@ public class AuthSession {
     public final String userId;
     public final String email;
     public final String name;
+    /** candidato | empresa (metadata account_type). */
+    public final String accountType;
 
     public AuthSession(
             String accessToken,
@@ -21,6 +23,19 @@ public class AuthSession {
             String email,
             String name
     ) {
+        this(accessToken, refreshToken, expiresAt, tokenType, userId, email, name, "");
+    }
+
+    public AuthSession(
+            String accessToken,
+            String refreshToken,
+            long expiresAt,
+            String tokenType,
+            String userId,
+            String email,
+            String name,
+            String accountType
+    ) {
         this.accessToken = accessToken;
         this.refreshToken = refreshToken;
         this.expiresAt = expiresAt;
@@ -28,6 +43,11 @@ public class AuthSession {
         this.userId = userId != null ? userId : "";
         this.email = email != null ? email : "";
         this.name = name != null ? name : "";
+        this.accountType = accountType != null ? accountType.trim().toLowerCase() : "";
+    }
+
+    public boolean isCompany() {
+        return "empresa".equals(accountType);
     }
 
     public boolean isExpired() {

@@ -1,6 +1,8 @@
 package com.mindlab.worky;
 
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.ProgressBar;
@@ -12,10 +14,13 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
 import com.mindlab.worky.auth.AuthSession;
 import com.mindlab.worky.auth.SessionManager;
 import com.mindlab.worky.data.CompanyRepository;
 import com.mindlab.worky.model.CompanyJob;
+import com.mindlab.worky.network.CepClient;
+import com.mindlab.worky.util.BrDocs;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -31,7 +36,11 @@ public class JobFormActivity extends AppCompatActivity {
 
     private static final String[] MODELOS = {"Remoto", "Híbrido", "Presencial"};
 
+    private TextInputLayout layoutTitle;
+    private TextInputLayout layoutCep;
+    private TextInputLayout layoutLocal;
     private TextInputEditText inputTitle;
+    private TextInputEditText inputCep;
     private TextInputEditText inputLocal;
     private TextInputEditText inputRequisitos;
     private TextInputEditText inputDescricao;
@@ -39,6 +48,7 @@ public class JobFormActivity extends AppCompatActivity {
     private ProgressBar progress;
     private TextView status;
     private MaterialButton btnSave;
+    private boolean maskingCep;
 
     private String editingJobId;
     private final ExecutorService io = Executors.newSingleThreadExecutor();
@@ -50,7 +60,11 @@ public class JobFormActivity extends AppCompatActivity {
         com.mindlab.worky.ui.WorkyNav.bindFromContent(this, "Vaga");
 
         TextView titleView = findViewById(R.id.textJobFormTitle);
+        layoutTitle = findViewById(R.id.layoutJobTitle);
+        layoutCep = findViewById(R.id.layoutJobCep);
+        layoutLocal = findViewById(R.id.layoutJobLocal);
         inputTitle = findViewById(R.id.inputJobTitle);
+        inputCep = findViewById(R.id.inputJobCep);
         inputLocal = findViewById(R.id.inputJobLocal);
         inputRequisitos = findViewById(R.id.inputJobRequisitos);
         inputDescricao = findViewById(R.id.inputJobDescricao);
@@ -60,6 +74,7 @@ public class JobFormActivity extends AppCompatActivity {
         btnSave = findViewById(R.id.btnSaveJob);
 
         spinnerModelo.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, MODELOS));
+        bindCepLookup();
 
         editingJobId = getIntent().getStringExtra(EXTRA_JOB_ID);
         boolean editing = editingJobId != null && !editingJobId.trim().isEmpty();
@@ -76,6 +91,47 @@ public class JobFormActivity extends AppCompatActivity {
         btnSave.setOnClickListener(v -> save());
     }
 
+    private void bindCepLookup() {
+        inputCep.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override
+            public void afterTextChanged(Editable s) {
+                if (maskingCep) return;
+                maskingCep = true;
+                String formatted = BrDocs.formatCep(s.toString());
+                if (!formatted.equals(s.toString())) {
+                    inputCep.setText(formatted);
+                    inputCep.setSelection(formatted.length());
+                }
+                layoutCep.setError(null);
+                maskingCep = false;
+                if (BrDocs.onlyDigits(formatted, 8).length() == 8) {
+                    lookupCep(formatted);
+                }
+            }
+        });
+    }
+
+    private void lookupCep(String cep) {
+        layoutCep.setHelperText(getString(R.string.cep_looking_up));
+        io.execute(() -> {
+            try {
+                CepClient.CepResult result = new CepClient().lookup(cep);
+                runOnUiThread(() -> {
+                    inputLocal.setText(result.locationLabel);
+                    layoutLocal.setError(null);
+                    layoutCep.setHelperText(getString(R.string.cep_ok));
+                });
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    layoutCep.setHelperText(null);
+                    layoutCep.setError(e.getMessage() != null ? e.getMessage() : "CEP invalido.");
+                });
+            }
+        });
+    }
+
     private void selectModelo(String modelo) {
         for (int i = 0; i < MODELOS.length; i++) {
             if (MODELOS[i].equalsIgnoreCase(modelo)
@@ -88,6 +144,7 @@ public class JobFormActivity extends AppCompatActivity {
     }
 
     private void save() {
+        layoutTitle.setError(null);
         String titulo = textOf(inputTitle);
         String local = textOf(inputLocal);
         String requisitos = textOf(inputRequisitos);
@@ -95,7 +152,7 @@ public class JobFormActivity extends AppCompatActivity {
         String modelo = MODELOS[Math.max(0, spinnerModelo.getSelectedItemPosition())];
 
         if (titulo.isEmpty()) {
-            Toast.makeText(this, R.string.job_title_required, Toast.LENGTH_SHORT).show();
+            layoutTitle.setError(getString(R.string.job_title_required));
             return;
         }
 
