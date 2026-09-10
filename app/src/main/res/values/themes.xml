@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Light fixo: evita roxo padrao do Material3 em dark mode -->
+    <style name="Base.Theme.Worky" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">@color/worky_blue</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorPrimaryContainer">@color/worky_blue_soft</item>
+        <item name="colorOnPrimaryContainer">@color/worky_blue</item>
+        <item name="colorSecondary">@color/worky_blue_bright</item>
+        <item name="colorOnSecondary">@color/white</item>
+        <item name="colorSecondaryContainer">@color/worky_blue_soft</item>
+        <item name="colorOnSecondaryContainer">@color/worky_blue</item>
+        <item name="colorTertiary">@color/worky_blue</item>
+        <item name="colorOnTertiary">@color/white</item>
+        <item name="colorTertiaryContainer">@color/worky_blue_soft</item>
+        <item name="colorOnTertiaryContainer">@color/worky_blue</item>
+        <item name="colorSurface">@color/worky_card</item>
+        <item name="colorOnSurface">@color/black</item>
+        <item name="colorOnSurfaceVariant">@color/worky_muted</item>
+        <item name="colorSurfaceVariant">@color/worky_blue_soft</item>
+        <item name="colorOutline">@color/worky_border</item>
+        <item name="colorOutlineVariant">@color/worky_border</item>
+        <item name="android:colorBackground">@color/worky_bg</item>
+        <item name="colorControlActivated">@color/worky_blue</item>
+        <item name="colorControlHighlight">@color/worky_blue_soft</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowBackground">@color/worky_bg</item>
+        <item name="android:textColorPrimary">@color/black</item>
+        <item name="android:textColorSecondary">@color/worky_muted</item>
+        <item name="android:textColorHint">@color/worky_muted</item>
+        <item name="android:editTextColor">@color/black</item>
+        <item name="editTextColor">@color/black</item>
+        <item name="radioButtonStyle">@style/Widget.Worky.RadioButton</item>
+        <item name="checkboxStyle">@style/Widget.Worky.CheckBox</item>
+        <item name="materialButtonStyle">@style/Widget.Worky.Button</item>
+        <item name="materialButtonOutlinedStyle">@style/Widget.Worky.Button.Outlined</item>
+        <item name="textInputStyle">@style/Widget.Worky.TextInputLayout</item>
+    </style>
+
+    <style name="Theme.Worky" parent="Base.Theme.Worky" />
+
+    <style name="Widget.Worky.RadioButton" parent="Widget.Material3.CompoundButton.RadioButton">
+        <item name="buttonTint">@color/worky_blue</item>
+        <item name="android:textColor">@color/black</item>
+        <item name="android:buttonTint">@color/worky_blue</item>
+    </style>
+
+    <style name="Widget.Worky.CheckBox" parent="Widget.Material3.CompoundButton.CheckBox">
+        <item name="buttonTint">@color/worky_blue</item>
+        <item name="android:textColor">@color/black</item>
+        <item name="android:buttonTint">@color/worky_blue</item>
+    </style>
+
+    <style name="Widget.Worky.Button" parent="Widget.Material3.Button">
+        <item name="backgroundTint">@color/worky_blue</item>
+        <item name="android:textColor">@color/white</item>
+    </style>
+
+    <style name="Widget.Worky.Button.Outlined" parent="Widget.Material3.Button.OutlinedButton">
+        <item name="strokeColor">@color/worky_blue</item>
+        <item name="android:textColor">@color/worky_blue</item>
+    </style>
+
+    <style name="Widget.Worky.TextInputLayout" parent="Widget.Material3.TextInputLayout.OutlinedBox">
+        <item name="boxStrokeColor">@color/worky_text_input_stroke</item>
+        <item name="hintTextColor">@color/worky_blue</item>
+        <item name="android:textColorHint">@color/worky_muted</item>
+        <item name="boxBackgroundColor">@color/worky_input_bg</item>
+    </style>
+</resources>

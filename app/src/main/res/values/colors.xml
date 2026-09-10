@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF0F172A</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="worky_blue">#FF003EC7</color>
+    <color name="worky_blue_bright">#FF0052FF</color>
+    <color name="worky_blue_soft">#FFE8EEFF</color>
+    <color name="worky_bg">#FFF8F9FA</color>
+    <color name="worky_muted">#FF475569</color>
+    <color name="worky_card">#FFFFFFFF</color>
+    <color name="worky_border">#FFCBD5E1</color>
+    <color name="worky_input_bg">#FFFFFFFF</color>
+    <color name="worky_card_dark">#FF0F172A</color>
+    <color name="worky_card_teal">#FF14B8A6</color>
+    <color name="worky_card_yellow">#FFFEF3C7</color>
+    <color name="worky_ad_bg">#FF0F172A</color>
+</resources>

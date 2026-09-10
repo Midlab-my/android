@@ -1,0 +1,5 @@
+# Copie estas linhas para local.properties (arquivo ja gitignored):
+# SUPABASE_URL=https://xxxx.supabase.co
+# SUPABASE_ANON_KEY=eyJhbGciOi...
+#
+# Use os mesmos valores de VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY do frontend Worky.
