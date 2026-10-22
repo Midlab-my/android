@@ -4,8 +4,11 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Letter W centered for adaptive foreground -->
     <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M22,30 L34,78 L44,48 L54,78 L66,30 L58,30 L50,62 L44,42 L38,62 L30,30 Z" />
+        android:fillColor="#00000000"
+        android:pathData="M30,36 L42,74 L54,36 L66,74 L78,36"
+        android:strokeWidth="10"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
 </vector>

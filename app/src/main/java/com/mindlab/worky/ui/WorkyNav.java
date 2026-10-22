@@ -41,8 +41,4 @@ public final class WorkyNav {
         MaterialToolbar toolbar = activity.findViewById(R.id.toolbarWorky);
         bindToolbar(activity, toolbar, title, true);
     }
-
-    public static void finishSafely(@NonNull AppCompatActivity activity) {
-        activity.finish();
-    }
 }

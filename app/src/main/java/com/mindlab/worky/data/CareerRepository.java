@@ -6,7 +6,10 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.WorkerThread;
 
+import com.mindlab.worky.auth.AuthSession;
+import com.mindlab.worky.auth.SessionManager;
 import com.mindlab.worky.model.CareerAnalysis;
+import com.mindlab.worky.model.SearchQuota;
 import com.mindlab.worky.network.WorkyApiClient;
 
 import java.io.IOException;
@@ -17,10 +20,12 @@ public class CareerRepository {
 
     private final CareerCacheDao dao;
     private final WorkyApiClient api;
+    private final SessionManager sessionManager;
 
     public CareerRepository(@NonNull Context context) {
         dao = AppDatabase.getInstance(context).careerCacheDao();
         api = new WorkyApiClient();
+        sessionManager = new SessionManager(context);
     }
 
     @WorkerThread
@@ -46,7 +51,7 @@ public class CareerRepository {
             }
         }
 
-        CareerAnalysis fresh = api.fetchCareer(cargo, fonte, local, modelo);
+        CareerAnalysis fresh = api.fetchCareer(cargo, fonte, local, modelo, accessToken());
         dao.upsert(new CareerCacheEntity(
                 key,
                 fresh.carreira != null ? fresh.carreira : cargo.trim(),
@@ -75,9 +80,24 @@ public class CareerRepository {
     }
 
     @WorkerThread
+    @Nullable
+    public SearchQuota quota() {
+        return api.fetchSearchQuota(accessToken());
+    }
+
+    @WorkerThread
     @NonNull
     public List<CareerCacheEntity> recent() {
         return dao.listRecent();
+    }
+
+    @Nullable
+    private String accessToken() {
+        AuthSession session = sessionManager.ensureValidSession();
+        if (session == null || !com.mindlab.worky.auth.JwtAal.hasAal2(session.accessToken)) {
+            return null;
+        }
+        return session.accessToken;
     }
 
     private static String normalizeKey(String cargo) {

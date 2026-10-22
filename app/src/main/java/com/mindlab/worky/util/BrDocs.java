@@ -170,6 +170,17 @@ public final class BrDocs {
         if (normalized.contains("email rate limit")) {
             return "Muitas tentativas de e-mail. Aguarde alguns minutos e tente de novo.";
         }
+        if (isAal2Error(raw, null)) {
+            return "Confirme o autenticador (MFA) para continuar. Isso nao significa que a conta esta sem perfil.";
+        }
         return raw;
+    }
+
+    public static boolean isAal2Error(@Nullable String message, @Nullable String code) {
+        String raw = ((code == null ? "" : code) + " " + (message == null ? "" : message)).toLowerCase(Locale.ROOT);
+        return raw.contains("aal2")
+                || raw.contains("aal 2")
+                || raw.contains("worky_require_aal2")
+                || raw.contains("42501");
     }
 }

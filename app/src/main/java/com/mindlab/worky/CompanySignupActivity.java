@@ -17,10 +17,14 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
+import com.google.gson.JsonObject;
 import com.mindlab.worky.auth.AuthSession;
+import com.mindlab.worky.auth.JwtAal;
+import com.mindlab.worky.auth.PendingCompanySignup;
 import com.mindlab.worky.auth.SessionStore;
 import com.mindlab.worky.auth.SupabaseAuthClient;
 import com.mindlab.worky.data.CompanyRepository;
+import com.mindlab.worky.model.CompanyProfile;
 import com.mindlab.worky.network.CepClient;
 import com.mindlab.worky.network.SupabaseConfig;
 import com.mindlab.worky.ui.WorkyNav;
@@ -30,6 +34,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class CompanySignupActivity extends AppCompatActivity {
+
+    public static final String EXTRA_COMPLETE_EXISTING = "complete_existing";
 
     private static final String[] SIZES = {
             "1-10 funcionarios",
@@ -66,6 +72,7 @@ public class CompanySignupActivity extends AppCompatActivity {
     private MaterialButton btnSignup;
     private boolean maskingCnpj;
     private boolean maskingCep;
+    private boolean completeExisting;
     private final ExecutorService io = Executors.newSingleThreadExecutor();
 
     @Override
@@ -114,7 +121,29 @@ public class CompanySignupActivity extends AppCompatActivity {
         btnNext.setOnClickListener(v -> goStep2());
         btnBackStep.setOnClickListener(v -> goStep1());
         btnSignup.setOnClickListener(v -> submit());
+
+        AuthSession existing = new SessionStore(this).get();
+        completeExisting = getIntent().getBooleanExtra(EXTRA_COMPLETE_EXISTING, false)
+                && existing != null
+                && existing.accessToken != null
+                && !existing.accessToken.isEmpty();
+        if (completeExisting) {
+            WorkyNav.bindFromContent(this, getString(R.string.company_complete_title));
+            if (existing.name != null && !existing.name.isEmpty()) {
+                inputName.setText(existing.name);
+            }
+            hideAuthFields();
+        }
         showStep(1);
+    }
+
+    private void hideAuthFields() {
+        View emailLayout = (View) inputEmail.getParent();
+        View passwordLayout = (View) inputPassword.getParent();
+        View confirmLayout = (View) inputPasswordConfirm.getParent();
+        if (emailLayout != null) emailLayout.setVisibility(View.GONE);
+        if (passwordLayout != null) passwordLayout.setVisibility(View.GONE);
+        if (confirmLayout != null) confirmLayout.setVisibility(View.GONE);
     }
 
     private void bindCnpjMask() {
@@ -182,30 +211,29 @@ public class CompanySignupActivity extends AppCompatActivity {
 
     private void goStep2() {
         String name = textOf(inputName);
-        String email = textOf(inputEmail);
-        String password = textOf(inputPassword);
-        String confirm = textOf(inputPasswordConfirm);
-
-        boolean ok = true;
         if (name.length() < 3) {
             Toast.makeText(this, R.string.company_signup_step1_empty, Toast.LENGTH_SHORT).show();
-            ok = false;
+            return;
         }
-        String emailErr = BrDocs.emailErrorMessage(email);
-        if (emailErr != null) {
-            Toast.makeText(this, emailErr, Toast.LENGTH_SHORT).show();
-            ok = false;
+        if (!completeExisting) {
+            String email = textOf(inputEmail);
+            String password = textOf(inputPassword);
+            String confirm = textOf(inputPasswordConfirm);
+            String emailErr = BrDocs.emailErrorMessage(email);
+            if (emailErr != null) {
+                Toast.makeText(this, emailErr, Toast.LENGTH_SHORT).show();
+                return;
+            }
+            String passErr = BrDocs.passwordErrorMessage(password);
+            if (passErr != null) {
+                Toast.makeText(this, passErr, Toast.LENGTH_SHORT).show();
+                return;
+            }
+            if (!password.equals(confirm)) {
+                Toast.makeText(this, R.string.signup_password_mismatch, Toast.LENGTH_SHORT).show();
+                return;
+            }
         }
-        String passErr = BrDocs.passwordErrorMessage(password);
-        if (passErr != null) {
-            Toast.makeText(this, passErr, Toast.LENGTH_SHORT).show();
-            ok = false;
-        }
-        if (!password.equals(confirm)) {
-            Toast.makeText(this, R.string.signup_password_mismatch, Toast.LENGTH_SHORT).show();
-            ok = false;
-        }
-        if (!ok) return;
         showStep(2);
     }
 
@@ -219,11 +247,20 @@ public class CompanySignupActivity extends AppCompatActivity {
         layoutStep2.setVisibility(step == 2 ? View.VISIBLE : View.GONE);
         textStep.setText(step == 1 ? R.string.company_step_1 : R.string.company_step_2);
         progressSteps.setProgress(step == 1 ? 50 : 100);
-        findViewById(R.id.textCompanySignupTitle).setVisibility(View.VISIBLE);
+        TextView title = findViewById(R.id.textCompanySignupTitle);
+        title.setVisibility(View.VISIBLE);
+        title.setText(completeExisting ? R.string.company_complete_title : R.string.company_signup_title);
         TextView subtitle = findViewById(R.id.textCompanySignupSubtitle);
-        subtitle.setText(step == 1
-                ? getString(R.string.company_signup_subtitle)
-                : getString(R.string.company_signup_step2_subtitle));
+        if (completeExisting) {
+            subtitle.setText(step == 1
+                    ? getString(R.string.company_complete_subtitle)
+                    : getString(R.string.company_signup_step2_subtitle));
+        } else {
+            subtitle.setText(step == 1
+                    ? getString(R.string.company_signup_subtitle)
+                    : getString(R.string.company_signup_step2_subtitle));
+        }
+        btnSignup.setText(completeExisting ? R.string.btn_complete_company_profile : R.string.btn_company_signup);
     }
 
     private void submit() {
@@ -267,45 +304,78 @@ public class CompanySignupActivity extends AppCompatActivity {
 
         String cnpj = BrDocs.onlyDigits(cnpjRaw, 14);
 
-        setLoading(true, getString(R.string.signing_up));
+        setLoading(true, getString(completeExisting ? R.string.job_saving : R.string.signing_up));
         SupabaseAuthClient auth = new SupabaseAuthClient();
         CompanyRepository companyRepo = new CompanyRepository();
         SessionStore store = new SessionStore(this);
 
         io.execute(() -> {
             try {
-                AuthSession session = auth.signUp(
-                        name,
-                        email,
-                        password,
-                        "empresa",
-                        size,
-                        cnpj,
-                        location,
-                        sector,
-                        linkedin
-                );
+                AuthSession companySession;
+                if (completeExisting) {
+                    AuthSession session = store.get();
+                    if (session == null) {
+                        throw new Exception(getString(R.string.login_required));
+                    }
+                    companySession = session.withAccountType("empresa");
+                    store.save(companySession);
+                    if (!JwtAal.hasAal2(companySession.accessToken)) {
+                        new PendingCompanySignup(name, size, cnpj, location, sector, linkedin).save(this);
+                        runOnUiThread(() -> {
+                            startActivity(new Intent(this, MfaActivity.class));
+                            finish();
+                        });
+                        return;
+                    }
+                    JsonObject data = new JsonObject();
+                    data.addProperty("full_name", name);
+                    data.addProperty("name", name);
+                    data.addProperty("account_type", "empresa");
+                    data.addProperty("company_size", size);
+                    data.addProperty("company_cnpj", cnpj);
+                    data.addProperty("company_location", location);
+                    data.addProperty("company_sector", sector);
+                    data.addProperty("company_linkedin", linkedin);
+                    auth.mergeUserMetadata(companySession, data);
+                    CompanyProfile existingProfile = companyRepo.fetchCompanyProfile(companySession);
+                    if (existingProfile == null) {
+                        companyRepo.createCompanyProfile(companySession, name, size, cnpj, location, sector, linkedin);
+                    }
+                } else {
+                    AuthSession session = auth.signUp(
+                            name,
+                            email,
+                            password,
+                            "empresa",
+                            size,
+                            cnpj,
+                            location,
+                            sector,
+                            linkedin
+                    );
 
-                if (session == null) {
-                    runOnUiThread(() -> {
-                        setLoading(false, getString(R.string.signup_confirm_email));
-                        Toast.makeText(this, R.string.signup_confirm_email, Toast.LENGTH_LONG).show();
-                        finish();
-                    });
-                    return;
+                    if (session == null) {
+                        runOnUiThread(() -> {
+                            setLoading(false, getString(R.string.signup_confirm_email));
+                            Toast.makeText(this, R.string.signup_confirm_email, Toast.LENGTH_LONG).show();
+                            finish();
+                        });
+                        return;
+                    }
+
+                    companySession = session.withAccountType("empresa");
+                    store.save(companySession);
+                    new PendingCompanySignup(name, size, cnpj, location, sector, linkedin).save(this);
+                    if (!JwtAal.hasAal2(companySession.accessToken)) {
+                        runOnUiThread(() -> {
+                            startActivity(new Intent(this, MfaActivity.class));
+                            finish();
+                        });
+                        return;
+                    }
+                    companyRepo.createCompanyProfile(companySession, name, size, cnpj, location, sector, linkedin);
+                    PendingCompanySignup.clear(this);
                 }
-
-                AuthSession companySession = new AuthSession(
-                        session.accessToken,
-                        session.refreshToken,
-                        session.expiresAt,
-                        session.tokenType,
-                        session.userId,
-                        session.email,
-                        session.name,
-                        "empresa"
-                );
-                companyRepo.createCompanyProfile(companySession, name, size, cnpj, location, sector, linkedin);
                 store.save(companySession);
 
                 runOnUiThread(() -> {

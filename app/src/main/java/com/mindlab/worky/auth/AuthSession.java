@@ -50,6 +50,12 @@ public class AuthSession {
         return "empresa".equals(accountType);
     }
 
+    public AuthSession withAccountType(String type) {
+        return new AuthSession(
+                accessToken, refreshToken, expiresAt, tokenType, userId, email, name, type
+        );
+    }
+
     public boolean isExpired() {
         // margem de 60s
         return expiresAt > 0 && (System.currentTimeMillis() / 1000L) >= (expiresAt - 60);

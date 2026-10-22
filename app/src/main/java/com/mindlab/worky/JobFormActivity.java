@@ -1,5 +1,6 @@
 package com.mindlab.worky;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -163,7 +164,7 @@ public class JobFormActivity extends AppCompatActivity {
 
         io.execute(() -> {
             try {
-                AuthSession session = sessions.requireValidSession();
+                AuthSession session = sessions.requireAal2Session();
                 CompanyJob saved;
                 if (editing) {
                     saved = repository.updateJob(session, editingJobId, titulo, local, modelo, requisitos, descricao);
@@ -178,6 +179,10 @@ public class JobFormActivity extends AppCompatActivity {
                 });
             } catch (Exception e) {
                 runOnUiThread(() -> {
+                    if (e instanceof com.mindlab.worky.auth.MfaRequiredException) {
+                        startActivity(new Intent(this, MfaActivity.class));
+                        return;
+                    }
                     setLoading(false, e.getMessage() != null ? e.getMessage() : getString(R.string.job_save_error));
                     Toast.makeText(this, R.string.job_save_error, Toast.LENGTH_LONG).show();
                 });

@@ -61,6 +61,11 @@ public class ProfileActivity extends AppCompatActivity {
             finish();
             return;
         }
+        if (peek != null && !com.mindlab.worky.auth.JwtAal.hasAal2(peek.accessToken)) {
+            startActivity(new Intent(this, MfaActivity.class));
+            finish();
+            return;
+        }
 
         btnSave.setOnClickListener(v -> save());
         btnToMatch.setOnClickListener(v -> {
@@ -78,7 +83,7 @@ public class ProfileActivity extends AppCompatActivity {
         ProfileRepository repo = new ProfileRepository();
         io.execute(() -> {
             try {
-                AuthSession session = sessions.requireValidSession();
+                AuthSession session = sessions.requireAal2Session();
                 ProfileRepository.ProfileDraft draft = repo.load(session);
                 runOnUiThread(() -> {
                     inputName.setText(draft.nome);
@@ -91,6 +96,10 @@ public class ProfileActivity extends AppCompatActivity {
                 });
             } catch (Exception e) {
                 runOnUiThread(() -> {
+                    if (e instanceof com.mindlab.worky.auth.MfaRequiredException) {
+                        startActivity(new Intent(this, MfaActivity.class));
+                        return;
+                    }
                     setLoading(false, e.getMessage() != null ? e.getMessage() : getString(R.string.profile_error));
                     Toast.makeText(this, R.string.profile_error, Toast.LENGTH_LONG).show();
                 });
@@ -117,7 +126,7 @@ public class ProfileActivity extends AppCompatActivity {
         ProfileRepository repo = new ProfileRepository();
         io.execute(() -> {
             try {
-                AuthSession session = sessions.requireValidSession();
+                AuthSession session = sessions.requireAal2Session();
                 repo.save(session, nome, bio, cidade, skills);
                 runOnUiThread(() -> {
                     setLoading(false, getString(R.string.profile_status_complete));
@@ -125,6 +134,10 @@ public class ProfileActivity extends AppCompatActivity {
                 });
             } catch (Exception e) {
                 runOnUiThread(() -> {
+                    if (e instanceof com.mindlab.worky.auth.MfaRequiredException) {
+                        startActivity(new Intent(this, MfaActivity.class));
+                        return;
+                    }
                     setLoading(false, e.getMessage() != null ? e.getMessage() : getString(R.string.profile_error));
                     Toast.makeText(this, R.string.profile_error, Toast.LENGTH_LONG).show();
                 });

@@ -14,6 +14,7 @@ import com.google.android.material.button.MaterialButtonToggleGroup;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 import com.mindlab.worky.auth.AuthSession;
+import com.mindlab.worky.auth.SessionManager;
 import com.mindlab.worky.auth.SessionStore;
 import com.mindlab.worky.auth.SupabaseAuthClient;
 import com.mindlab.worky.network.SupabaseConfig;
@@ -126,8 +127,8 @@ public class LoginActivity extends AppCompatActivity {
 
     private void doLogin() {
         clearFieldErrors();
-        String email = textOf(inputEmail);
-        String password = textOf(inputPassword);
+        String email = textOf(inputEmail).toLowerCase(java.util.Locale.ROOT);
+        String password = passwordOf(inputPassword);
 
         String emailErr = BrDocs.emailErrorMessage(email);
         if (emailErr != null) {
@@ -146,23 +147,14 @@ public class LoginActivity extends AppCompatActivity {
         io.execute(() -> {
             try {
                 AuthSession session = auth.signIn(email, password);
-                if (companyMode && !session.isCompany()) {
-                    store.clear();
-                    throw new Exception(getString(R.string.login_not_company));
-                }
-                if (!companyMode && session.isCompany()) {
-                    store.clear();
-                    throw new Exception(getString(R.string.login_is_company));
-                }
                 store.save(session);
-                runOnUiThread(() -> {
-                    setLoading(false, "Logado como " + session.displayName());
-                    Toast.makeText(this, R.string.login_ok, Toast.LENGTH_SHORT).show();
-                    if (session.isCompany()) {
-                        startActivity(new Intent(this, CompanyActivity.class));
-                    }
-                    finish();
-                });
+                session = new SessionManager(this).hydrateAccountType(session);
+                if (companyMode) {
+                    session = session.withAccountType("empresa");
+                    store.save(session);
+                }
+                final AuthSession logged = session;
+                runOnUiThread(() -> continueAfterPassword(logged));
             } catch (Exception e) {
                 String msg = e.getMessage() != null ? e.getMessage() : getString(R.string.login_error);
                 runOnUiThread(() -> {
@@ -206,9 +198,7 @@ public class LoginActivity extends AppCompatActivity {
                 runOnUiThread(() -> {
                     if (session != null) {
                         store.save(session);
-                        setLoading(false, "Conta criada. Bem-vindo, " + session.displayName());
-                        Toast.makeText(this, R.string.signup_ok, Toast.LENGTH_SHORT).show();
-                        finish();
+                        continueAfterPassword(session);
                     } else {
                         setLoading(false, getString(R.string.signup_confirm_email));
                         Toast.makeText(this, R.string.signup_confirm_email, Toast.LENGTH_LONG).show();
@@ -225,6 +215,17 @@ public class LoginActivity extends AppCompatActivity {
         });
     }
 
+    private void continueAfterPassword(AuthSession session) {
+        setLoading(false, "Logado como " + session.displayName());
+        if (!com.mindlab.worky.auth.JwtAal.hasAal2(session.accessToken)) {
+            startActivity(new Intent(this, MfaActivity.class));
+            finish();
+            return;
+        }
+        Toast.makeText(this, R.string.login_ok, Toast.LENGTH_SHORT).show();
+        finish();
+    }
+
     private void setLoading(boolean loading, String status) {
         progressLogin.setVisibility(loading ? View.VISIBLE : View.GONE);
         textLoginStatus.setText(status);
@@ -238,6 +239,10 @@ public class LoginActivity extends AppCompatActivity {
 
     private static String textOf(TextInputEditText field) {
         return field.getText() != null ? field.getText().toString().trim() : "";
+    }
+
+    private static String passwordOf(TextInputEditText field) {
+        return field.getText() != null ? field.getText().toString() : "";
     }
 
     @Override

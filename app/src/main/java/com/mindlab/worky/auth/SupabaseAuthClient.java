@@ -44,7 +44,7 @@ public class SupabaseAuthClient {
         assertConfigured();
 
         JsonObject body = new JsonObject();
-        body.addProperty("email", email.trim());
+        body.addProperty("email", email.trim().toLowerCase(java.util.Locale.ROOT));
         body.addProperty("password", password);
 
         Request request = new Request.Builder()
@@ -99,7 +99,7 @@ public class SupabaseAuthClient {
         }
 
         JsonObject body = new JsonObject();
-        body.addProperty("email", email.trim().toLowerCase());
+        body.addProperty("email", email.trim().toLowerCase(java.util.Locale.ROOT));
         body.addProperty("password", password);
         body.add("data", data);
 
@@ -255,30 +255,170 @@ public class SupabaseAuthClient {
         return new AuthSession(access, refresh, expiresAt, tokenType, userId, email, name, accountType);
     }
 
+    @NonNull
+    public List<TotpFactor> listTotpFactors(@NonNull AuthSession session) throws IOException {
+        JsonObject user = fetchUser(session);
+        List<TotpFactor> out = new ArrayList<>();
+        if (!user.has("factors") || !user.get("factors").isJsonArray()) {
+            return out;
+        }
+        JsonArray rows = user.getAsJsonArray("factors");
+        for (JsonElement el : rows) {
+            if (el == null || !el.isJsonObject()) continue;
+            JsonObject row = el.getAsJsonObject();
+            TotpFactor factor = new TotpFactor(
+                    text(row, "id"),
+                    text(row, "friendly_name"),
+                    text(row, "factor_type"),
+                    text(row, "status")
+            );
+            if (factor.isTotp() && !factor.id.isEmpty()) {
+                out.add(factor);
+            }
+        }
+        return out;
+    }
+
+    @NonNull
+    public MfaEnrollment enrollTotp(@NonNull AuthSession session) throws IOException {
+        List<TotpFactor> factors = listTotpFactors(session);
+        MfaRules.assertCanEnroll(factors);
+        for (TotpFactor leftover : MfaRules.unverified(factors)) {
+            deleteFactor(session, leftover.id);
+        }
+        JsonObject body = new JsonObject();
+        body.addProperty("factor_type", "totp");
+        body.addProperty("friendly_name", "Worky");
+        body.addProperty("issuer", "Worky");
+        JsonObject root = authJson("/factors", "POST", session, body);
+        String id = text(root, "id");
+        if (id.isEmpty()) {
+            throw new IOException("Nao foi possivel gerar o QR Code. Tente novamente.");
+        }
+        JsonObject totp = root.has("totp") && root.get("totp").isJsonObject()
+                ? root.getAsJsonObject("totp")
+                : new JsonObject();
+        return new MfaEnrollment(id, text(totp, "qr_code"), text(totp, "secret"), text(totp, "uri"));
+    }
+
+    @NonNull
+    public AuthSession verifyTotp(
+            @NonNull AuthSession session,
+            @NonNull String factorId,
+            @NonNull String code
+    ) throws IOException {
+        if (!MfaRules.isSixDigits(code)) {
+            throw new IOException("Digite os 6 dígitos do autenticador.");
+        }
+        String path = "/factors/" + enc(factorId);
+        JsonObject challenge = authJson(path + "/challenge", "POST", session, new JsonObject());
+        String challengeId = text(challenge, "id");
+        if (challengeId.isEmpty()) {
+            throw new IOException("Não foi possível validar o segundo fator.");
+        }
+        JsonObject body = new JsonObject();
+        body.addProperty("challenge_id", challengeId);
+        body.addProperty("code", code);
+        JsonObject raw = authJson(path + "/verify", "POST", session, body);
+        AuthSession next = parseSession(raw.toString(), false);
+        if ((next.accountType == null || next.accountType.isEmpty())
+                && session.accountType != null && !session.accountType.isEmpty()) {
+            next = next.withAccountType(session.accountType);
+        }
+        if (!JwtAal.hasAal2(next.accessToken)) {
+            throw new IOException("Não foi possível validar o segundo fator.");
+        }
+        return next;
+    }
+
+    private void deleteFactor(@NonNull AuthSession session, @NonNull String factorId) throws IOException {
+        authJson("/factors/" + enc(factorId), "DELETE", session, null);
+    }
+
+    @NonNull
+    public JsonObject fetchUser(@NonNull AuthSession session) throws IOException {
+        return authJson("/user", "GET", session, null);
+    }
+
+    private JsonObject authJson(
+            String path,
+            String method,
+            AuthSession session,
+            @Nullable JsonObject body
+    ) throws IOException {
+        assertConfigured();
+        Request.Builder builder = new Request.Builder()
+                .url(SupabaseConfig.url() + "/auth/v1" + path)
+                .header("apikey", SupabaseConfig.anonKey())
+                .header("Authorization", "Bearer " + session.accessToken);
+        if ("GET".equals(method)) {
+            builder.get();
+        } else if ("DELETE".equals(method)) {
+            builder.delete();
+        } else {
+            builder.header("Content-Type", "application/json");
+            String json = body == null ? "{}" : body.toString();
+            RequestBody requestBody = RequestBody.create(json, JSON);
+            if ("POST".equals(method)) {
+                builder.post(requestBody);
+            } else if ("PUT".equals(method)) {
+                builder.put(requestBody);
+            } else {
+                throw new IOException("Metodo HTTP nao suportado: " + method);
+            }
+        }
+        try (Response response = client.newCall(builder.build()).execute()) {
+            String raw = readBody(response);
+            if (!response.isSuccessful()) {
+                throw new IOException(extractError(raw, "Nao foi possivel completar a autenticacao."));
+            }
+            if (raw == null || raw.trim().isEmpty() || "null".equals(raw.trim())) {
+                return new JsonObject();
+            }
+            JsonElement parsed = gson.fromJson(raw, JsonElement.class);
+            if (parsed != null && parsed.isJsonObject()) {
+                return parsed.getAsJsonObject();
+            }
+            return new JsonObject();
+        }
+    }
+
+    private static String enc(String value) {
+        try {
+            return java.net.URLEncoder.encode(value == null ? "" : value, "UTF-8");
+        } catch (Exception ignored) {
+            return value == null ? "" : value;
+        }
+    }
+
     /**
      * Metadata do usuario autenticado (para hidratar company_profiles apos confirmacao de e-mail).
      */
     @NonNull
     public JsonObject fetchUserMetadata(@NonNull AuthSession session) throws IOException {
+        JsonObject user = fetchUser(session);
+        if (user.has("user_metadata") && user.get("user_metadata").isJsonObject()) {
+            return user.getAsJsonObject("user_metadata");
+        }
+        return new JsonObject();
+    }
+
+    public void mergeUserMetadata(@NonNull AuthSession session, @NonNull JsonObject data) throws IOException {
         assertConfigured();
+        JsonObject body = new JsonObject();
+        body.add("data", data);
         Request request = new Request.Builder()
                 .url(SupabaseConfig.url() + "/auth/v1/user")
-                .get()
+                .put(RequestBody.create(body.toString(), JSON))
                 .header("apikey", SupabaseConfig.anonKey())
                 .header("Authorization", "Bearer " + session.accessToken)
+                .header("Content-Type", "application/json")
                 .build();
-
         try (Response response = client.newCall(request).execute()) {
             String raw = readBody(response);
             if (!response.isSuccessful()) {
-                throw new IOException(extractError(raw, "Falha ao carregar usuario."));
+                throw new IOException(extractError(raw, "Falha ao atualizar a conta."));
             }
-            JsonObject user = gson.fromJson(raw, JsonObject.class);
-            if (user == null) return new JsonObject();
-            if (user.has("user_metadata") && user.get("user_metadata").isJsonObject()) {
-                return user.getAsJsonObject("user_metadata");
-            }
-            return new JsonObject();
         }
     }
 

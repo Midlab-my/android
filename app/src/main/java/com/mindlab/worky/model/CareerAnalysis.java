@@ -25,11 +25,23 @@ public class CareerAnalysis {
     @SerializedName("crescimentoAnual")
     public String crescimentoAnual;
 
+    @SerializedName("crescimentoMensal")
+    public String crescimentoMensal;
+
     @SerializedName("competenciasDesejadas")
     public Competencias competenciasDesejadas;
 
     @SerializedName("certificacoesRecomendadas")
     public List<Certificacao> certificacoesRecomendadas;
+
+    @SerializedName("oportunidadesDestaque")
+    public List<JobItem> oportunidadesDestaque;
+
+    @SerializedName("todasVagas")
+    public List<JobItem> todasVagas;
+
+    @SerializedName("cursosRecomendados")
+    public List<Curso> cursosRecomendados;
 
     public static class Competencias {
         @SerializedName("habilidadesTecnicas")
@@ -48,6 +60,23 @@ public class CareerAnalysis {
 
         @SerializedName("descricao")
         public String descricao;
+
+        @SerializedName("url")
+        public String url;
+    }
+
+    public static class Curso {
+        @SerializedName("plataforma")
+        public String plataforma;
+
+        @SerializedName("nome")
+        public String nome;
+
+        @SerializedName("url")
+        public String url;
+
+        @SerializedName("area")
+        public String area;
     }
 
     public List<String> techSkills() {
@@ -55,5 +84,18 @@ public class CareerAnalysis {
             return new ArrayList<>();
         }
         return competenciasDesejadas.habilidadesTecnicas;
+    }
+
+    public List<String> softSkills() {
+        if (competenciasDesejadas == null || competenciasDesejadas.softSkills == null) {
+            return new ArrayList<>();
+        }
+        return competenciasDesejadas.softSkills;
+    }
+
+    public List<JobItem> jobs() {
+        if (todasVagas != null && !todasVagas.isEmpty()) return todasVagas;
+        if (oportunidadesDestaque != null) return oportunidadesDestaque;
+        return new ArrayList<>();
     }
 }

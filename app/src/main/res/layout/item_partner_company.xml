@@ -3,7 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginBottom="10dp"
-    android:background="@color/worky_card"
+    android:background="@drawable/bg_search_wrap"
     android:orientation="vertical"
     android:padding="16dp">
 

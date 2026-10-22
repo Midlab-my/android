@@ -18,11 +18,28 @@
         android:textColor="@color/worky_muted"
         android:textSize="13sp" />
 
+    <ProgressBar
+        android:id="@+id/progressCompanies"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="24dp" />
+
+    <TextView
+        android:id="@+id/textCompaniesEmpty"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="24dp"
+        android:text="@string/companies_empty"
+        android:textColor="@color/worky_muted"
+        android:visibility="gone" />
+
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerCompanies"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
         android:clipToPadding="false"
-        android:padding="16dp" />
+        android:padding="16dp"
+        android:visibility="gone" />
 </LinearLayout>

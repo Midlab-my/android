@@ -6,7 +6,10 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.WorkerThread;
 
+import com.mindlab.worky.auth.AuthSession;
+import com.mindlab.worky.auth.SessionManager;
 import com.mindlab.worky.model.JobItem;
+import com.mindlab.worky.network.ApiConfig;
 import com.mindlab.worky.network.WorkyApiClient;
 
 import java.io.IOException;
@@ -17,10 +20,12 @@ public class JobsRepository {
 
     private final JobsCacheDao dao;
     private final WorkyApiClient api;
+    private final SessionManager sessionManager;
 
     public JobsRepository(@NonNull Context context) {
         dao = AppDatabase.getInstance(context).jobsCacheDao();
         api = new WorkyApiClient();
+        sessionManager = new SessionManager(context);
     }
 
     @WorkerThread
@@ -33,7 +38,7 @@ public class JobsRepository {
             boolean preferCache
     ) throws IOException {
         String key = normalizeKey(cargo) + "|"
-                + (fonte == null ? "google" : fonte.trim().toLowerCase(Locale.ROOT)) + "|"
+                + (fonte == null ? ApiConfig.DEFAULT_FONTE : fonte.trim().toLowerCase(Locale.ROOT)) + "|"
                 + (local == null ? "" : local.trim().toLowerCase(Locale.ROOT)) + "|"
                 + (modelo == null ? "" : modelo.trim().toLowerCase(Locale.ROOT));
         if (preferCache) {
@@ -43,7 +48,9 @@ public class JobsRepository {
             }
         }
 
-        List<JobItem> fresh = api.fetchJobs(cargo, fonte, local, modelo);
+        AuthSession session = sessionManager.ensureValidSession();
+        String token = session != null ? session.accessToken : null;
+        List<JobItem> fresh = api.fetchJobs(cargo, fonte, local, modelo, token);
         dao.upsert(new JobsCacheEntity(
                 key,
                 cargo.trim(),

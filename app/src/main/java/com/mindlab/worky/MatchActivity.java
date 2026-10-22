@@ -1,5 +1,6 @@
 package com.mindlab.worky;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.ProgressBar;
@@ -99,7 +100,7 @@ public class MatchActivity extends AppCompatActivity {
 
         io.execute(() -> {
             try {
-                AuthSession active = sessions.requireValidSession();
+                AuthSession active = sessions.requireAal2Session();
                 Map<String, Object> profile = auth.fetchProfessionalProfile(active);
                 AuthSession finalActive = active;
                 runOnUiThread(() -> {
@@ -119,6 +120,10 @@ public class MatchActivity extends AppCompatActivity {
                 });
             } catch (Exception e) {
                 runOnUiThread(() -> {
+                    if (e instanceof com.mindlab.worky.auth.MfaRequiredException) {
+                        startActivity(new Intent(this, MfaActivity.class));
+                        return;
+                    }
                     setLoading(false, e.getMessage() != null ? e.getMessage() : getString(R.string.error_match), false);
                     Toast.makeText(this, R.string.error_match, Toast.LENGTH_LONG).show();
                 });
@@ -140,7 +145,7 @@ public class MatchActivity extends AppCompatActivity {
             return;
         }
 
-        setLoading(true, preferCache ? "Lendo cache local…" : getString(R.string.matching), !preferCache);
+        setLoading(true, preferCache ? getString(R.string.loading_cache) : getString(R.string.matching), !preferCache);
         MatchRepository repository = new MatchRepository(this);
         Map<String, Object> profileSnapshot = accountProfile;
 

@@ -228,11 +228,22 @@ public class ProfileRepository {
         try {
             JsonObject obj = new Gson().fromJson(raw, JsonObject.class);
             if (obj == null) return "Falha ao salvar perfil.";
+            String code = obj.has("code") && obj.get("code").isJsonPrimitive()
+                    ? obj.get("code").getAsString()
+                    : "";
             for (String key : new String[]{"message", "msg", "hint", "error"}) {
                 if (obj.has(key) && obj.get(key).isJsonPrimitive()) {
                     String v = obj.get(key).getAsString();
-                    if (v != null && !v.trim().isEmpty()) return v.trim();
+                    if (v != null && !v.trim().isEmpty()) {
+                        return com.mindlab.worky.util.BrDocs.translateAuthError(
+                                code + " " + v.trim(),
+                                v.trim()
+                        );
+                    }
                 }
+            }
+            if (com.mindlab.worky.util.BrDocs.isAal2Error(raw, code)) {
+                return com.mindlab.worky.util.BrDocs.translateAuthError(raw, "Falha ao salvar perfil.");
             }
         } catch (Exception ignored) {
         }

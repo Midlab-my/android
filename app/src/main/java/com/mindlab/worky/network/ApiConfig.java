@@ -8,4 +8,7 @@ public final class ApiConfig {
 
     /** Site web completo (fallback / tela full). */
     public static final String WEB_URL = "https://workyy.vercel.app";
+
+    /** Fonte padrão da busca (mesmo valor do Dashboard web). */
+    public static final String DEFAULT_FONTE = "scrape";
 }

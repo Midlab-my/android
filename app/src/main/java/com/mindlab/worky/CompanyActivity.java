@@ -54,6 +54,7 @@ public class CompanyActivity extends AppCompatActivity {
     private final ExecutorService io = Executors.newSingleThreadExecutor();
     private boolean ignoreSpinner;
     private boolean needsReload;
+    private boolean askedComplete;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -112,6 +113,12 @@ public class CompanyActivity extends AppCompatActivity {
             finish();
             return;
         }
+        AuthSession peek = sessionStore.get();
+        if (peek != null && !com.mindlab.worky.auth.JwtAal.hasAal2(peek.accessToken)) {
+            startActivity(new Intent(this, MfaActivity.class));
+            finish();
+            return;
+        }
 
         loadPanel();
     }
@@ -123,6 +130,24 @@ public class CompanyActivity extends AppCompatActivity {
             needsReload = false;
             loadPanel();
         }
+    }
+
+    private void askToCompleteCompany() {
+        setLoading(false, getString(R.string.company_not_found_action));
+        if (askedComplete || isFinishing()) return;
+        askedComplete = true;
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.company_complete_title)
+                .setMessage(R.string.company_not_found_action)
+                .setPositiveButton(R.string.btn_complete_company_yes, (d, w) -> {
+                    Intent intent = new Intent(this, CompanySignupActivity.class);
+                    intent.putExtra(CompanySignupActivity.EXTRA_COMPLETE_EXISTING, true);
+                    startActivity(intent);
+                    finish();
+                })
+                .setNegativeButton(android.R.string.cancel, (d, w) -> finish())
+                .setOnCancelListener(d -> finish())
+                .show();
     }
 
     private void openJobForm(CompanyJob job) {
@@ -211,25 +236,11 @@ public class CompanyActivity extends AppCompatActivity {
                             session = patched;
                         }
                     } catch (Exception ignored) {
-                        // segue para dialog se ainda null
+                        // segue sem criar outra conta
                     }
                 }
                 if (profile == null) {
-                    runOnUiThread(() -> {
-                        setLoading(false, getString(R.string.company_not_found));
-                        textCompanyName.setText(R.string.company_title);
-                        textCompanyMeta.setText("");
-                        jobs.clear();
-                        adapter.submit(new ArrayList<>());
-                        updateJobActionsEnabled();
-                        new AlertDialog.Builder(this)
-                                .setTitle(R.string.company_title)
-                                .setMessage(R.string.company_not_found_action)
-                                .setPositiveButton(R.string.btn_go_company_signup, (d, w) ->
-                                        startActivity(new Intent(this, CompanySignupActivity.class)))
-                                .setNegativeButton(android.R.string.cancel, null)
-                                .show();
-                    });
+                    runOnUiThread(() -> askToCompleteCompany());
                     return;
                 }
                 // Copia final: profile foi reatribuido acima e nao pode entrar no lambda
@@ -272,6 +283,11 @@ public class CompanyActivity extends AppCompatActivity {
                 });
             } catch (Exception e) {
                 runOnUiThread(() -> {
+                    if (e instanceof com.mindlab.worky.auth.MfaRequiredException) {
+                        startActivity(new Intent(this, MfaActivity.class));
+                        finish();
+                        return;
+                    }
                     setLoading(false, e.getMessage() != null ? e.getMessage() : getString(R.string.company_error));
                     Toast.makeText(this, R.string.company_error, Toast.LENGTH_LONG).show();
                 });
@@ -308,7 +324,7 @@ public class CompanyActivity extends AppCompatActivity {
     }
 
     private AuthSession ensureSession() throws Exception {
-        return sessionManager.requireValidSession();
+        return sessionManager.requireAal2Session();
     }
 
     private void setLoading(boolean loading, String status) {

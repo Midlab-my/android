@@ -1,34 +1,37 @@
 package com.mindlab.worky.ui;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
+import java.text.Normalizer;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/** Catalogo espelhado do Dashboard web (paises, estados, categorias). */
+/** Catalogo espelhado do Dashboard web (paises, estados, sugestoes). */
 public final class SearchCatalog {
 
-    public static final class Category {
-        public final String id;
-        public final String label;
-        public final String description;
-        public final List<String> items;
-
-        public Category(String id, String label, String description, List<String> items) {
-            this.id = id;
-            this.label = label;
-            this.description = description;
-            this.items = items;
-        }
-    }
-
-    public static final String[] MODELOS = {"Qualquer", "Remoto", "Hibrido", "Presencial"};
+    public static final String[] MODELOS = {"Qualquer", "Remoto", "Híbrido", "Presencial"};
+    public static final List<String> POPULAR = Arrays.asList(
+            "Desenvolvedor", "Designer", "Analista de Dados", "Marketing", "Vendas"
+    );
+    private static final List<String> SUGGESTIONS = Arrays.asList(
+            "Administrador", "Advogado", "Analista", "Analista de Dados", "Assistente",
+            "Auxiliar", "Backend", "Bug Bounty", "Contador", "Coordenador", "Desenvolvedor",
+            "Desenvolvedor Backend", "Desenvolvedor Frontend", "Desenvolvedor Fullstack",
+            "Designer", "Direito", "Enfermeiro", "Engenharia Civil", "Engenheiro",
+            "Engenheiro de Software", "Estágio", "Finanças", "Frontend", "Fullstack",
+            "Gerente", "Help Desk", "Juridico", "Logística", "Marketing", "Medico",
+            "Mobile", "Pedagogia", "Product Management", "Product Owner", "QA", "RH",
+            "Recursos Humanos", "Segurança da Informação", "Service Desk",
+            "Solutions Architect", "SRE", "Suporte", "Técnico", "Tecnologia da Informação",
+            "UI Design", "UX", "UX Research", "Vendas"
+    );
 
     private static final Map<String, List<String>> LOCATION = new LinkedHashMap<>();
-    private static final List<Category> CATEGORIES;
 
     static {
         LOCATION.put("Brasil", Arrays.asList(
@@ -50,25 +53,6 @@ public final class SearchCatalog {
         LOCATION.put("Canada", Arrays.asList(
                 "Ontario", "Quebec", "British Columbia"
         ));
-
-        CATEGORIES = Arrays.asList(
-                new Category("popular", "Populares", "Buscas frequentes no mercado brasileiro",
-                        Arrays.asList("Desenvolvedor", "Designer", "Analista de Dados", "Marketing", "Vendas", "Contador", "Advogado", "RH")),
-                new Category("technology", "Tecnologia", "Desenvolvimento, infraestrutura, seguranca e qualidade",
-                        Arrays.asList("Desenvolvedor Frontend", "Desenvolvedor Backend", "Desenvolvedor Full Stack", "DevOps", "Engenheiro de Software", "Mobile", "QA", "Seguranca da Informacao")),
-                new Category("data-ai", "Dados e IA", "Analise, engenharia, ciencia de dados e inteligencia artificial",
-                        Arrays.asList("Analista de Dados", "Engenheiro de Dados", "Cientista de Dados", "Analista de BI", "Engenheiro de Machine Learning", "Especialista em IA", "Analytics Engineer")),
-                new Category("design-product", "Design e Produto", "Experiencia do usuario, produto digital e pesquisa",
-                        Arrays.asList("UX Designer", "UI Designer", "Product Designer", "Product Manager", "Product Owner", "Scrum Master")),
-                new Category("marketing", "Marketing", "Crescimento, conteudo, midia paga e performance",
-                        Arrays.asList("Analista de Marketing", "Social Media", "Growth Hacker", "SEO", "Copywriter")),
-                new Category("commercial", "Comercial", "Vendas e relacionamento com clientes",
-                        Arrays.asList("Vendedor", "Executivo de Contas", "Account Manager", "SDR", "Gerente Comercial")),
-                new Category("finance", "Financeiro", "Controladoria, credito e planejamento",
-                        Arrays.asList("Contador", "Analista Financeiro", "Controller", "Gerente Financeiro")),
-                new Category("people", "Pessoas e RH", "Recrutamento, cultura e desenvolvimento",
-                        Arrays.asList("Analista de RH", "Recrutador", "HRBP", "Gerente de RH"))
-        );
     }
 
     private SearchCatalog() {}
@@ -85,7 +69,32 @@ public final class SearchCatalog {
     }
 
     @NonNull
-    public static List<Category> categories() {
-        return CATEGORIES;
+    public static List<String> suggest(@Nullable String query) {
+        String folded = fold(query);
+        if (folded.length() < 2) return POPULAR;
+        List<String> prefix = new ArrayList<>();
+        List<String> contains = new ArrayList<>();
+        for (String label : SUGGESTIONS) {
+            String cargo = fold(label);
+            if (cargo.startsWith(folded) || cargo.equals(folded)) {
+                if (!prefix.contains(label)) prefix.add(label);
+            } else if (cargo.contains(folded) && !contains.contains(label)) {
+                contains.add(label);
+            }
+            if (prefix.size() >= 5) break;
+        }
+        List<String> out = new ArrayList<>(prefix);
+        for (String item : contains) {
+            if (out.size() >= 5) break;
+            if (!out.contains(item)) out.add(item);
+        }
+        return out;
+    }
+
+    @NonNull
+    public static String fold(@Nullable String value) {
+        if (value == null) return "";
+        String norm = Normalizer.normalize(value.trim(), Normalizer.Form.NFD);
+        return norm.replaceAll("\\p{M}+", "").toLowerCase();
     }
 }

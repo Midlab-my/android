@@ -13,6 +13,9 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.material.button.MaterialButton;
+import com.mindlab.worky.auth.AuthSession;
+import com.mindlab.worky.auth.JwtAal;
+import com.mindlab.worky.auth.SessionStore;
 import com.mindlab.worky.network.ApiConfig;
 import com.mindlab.worky.ui.WorkyNav;
 
@@ -53,11 +56,23 @@ public class PlansActivity extends AppCompatActivity {
 
         layoutCards = findViewById(R.id.layoutPlansCards);
         RadioGroup audience = findViewById(R.id.radioPlansAudience);
+        AuthSession session = new SessionStore(this).get();
+        boolean authed = session != null && JwtAal.hasAal2(session.accessToken);
+        if (authed) {
+            audience.setVisibility(View.GONE);
+            render(session.isCompany());
+            return;
+        }
         boolean company = getIntent().getBooleanExtra("company", false);
         if (company) {
             audience.check(R.id.radioPlansCompany);
         }
-        audience.setOnCheckedChangeListener((group, checkedId) -> render(checkedId == R.id.radioPlansCompany));
+        audience.setOnCheckedChangeListener((group, checkedId) -> {
+            if (checkedId == View.NO_ID) return;
+            render(checkedId == R.id.radioPlansCompany);
+        });
+        findViewById(R.id.radioPlansCandidate).setOnClickListener(v -> render(false));
+        findViewById(R.id.radioPlansCompany).setOnClickListener(v -> render(true));
         render(company);
     }
 

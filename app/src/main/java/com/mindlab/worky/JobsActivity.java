@@ -98,14 +98,15 @@ public class JobsActivity extends AppCompatActivity {
                     adapter.submit(jobs);
                     textJobsMeta.setText(jobs.size() + " vaga(s)" + (preferCache ? " · cache" : ""));
                     if (jobs.isEmpty()) {
-                        Toast.makeText(this, "Nenhuma vaga encontrada.", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, R.string.jobs_empty, Toast.LENGTH_SHORT).show();
                     }
                 });
             } catch (Exception e) {
+                String msg = e.getMessage() != null ? e.getMessage() : "Erro ao buscar vagas.";
                 runOnUiThread(() -> {
                     setLoading(false, preferCache);
-                    textJobsMeta.setText(e.getMessage() != null ? e.getMessage() : "Erro ao buscar vagas.");
-                    Toast.makeText(this, "Falha ao buscar vagas.", Toast.LENGTH_LONG).show();
+                    textJobsMeta.setText(msg);
+                    Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
                 });
             }
         });
@@ -114,10 +115,10 @@ public class JobsActivity extends AppCompatActivity {
     private void setLoading(boolean loading, boolean preferCache) {
         if (loading) {
             layoutLoadingJobs.setVisibility(View.VISIBLE);
-            textJobsMeta.setText(preferCache ? "Lendo cache local…" : getString(R.string.searching_jobs));
+            textJobsMeta.setText(preferCache ? getString(R.string.loading_cache) : getString(R.string.searching_jobs));
             progressJobs.setProgress(8);
             loadingTicker.start((elapsed, remaining, percent, stepLabel) -> {
-                textLoadingStepJobs.setText(preferCache ? "Lendo cache local…" : stepLabel);
+                textLoadingStepJobs.setText(preferCache ? getString(R.string.loading_cache) : stepLabel);
                 progressJobs.setProgress(preferCache ? 90 : percent);
                 if (preferCache) {
                     textLoadingMetaJobs.setText("Cache no celular…");
@@ -139,7 +140,7 @@ public class JobsActivity extends AppCompatActivity {
 
     private void openJobLink(JobItem job) {
         if (job.link == null || job.link.trim().isEmpty()) {
-            Toast.makeText(this, "Link indisponivel.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.result_link_missing, Toast.LENGTH_SHORT).show();
             return;
         }
         startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(job.link.trim())));

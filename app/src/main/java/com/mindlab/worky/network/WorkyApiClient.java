@@ -4,11 +4,15 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
 import com.mindlab.worky.model.CareerAnalysis;
 import com.mindlab.worky.model.JobItem;
 import com.mindlab.worky.model.ProfileMatchResult;
+import com.mindlab.worky.model.PublicCatalogCompany;
+import com.mindlab.worky.model.SearchQuota;
 
 import java.io.IOException;
 import java.lang.reflect.Type;
@@ -49,28 +53,23 @@ public class WorkyApiClient {
             @NonNull String cargo,
             @Nullable String fonte,
             @Nullable String local,
-            @Nullable String modelo
+            @Nullable String modelo,
+            @Nullable String accessToken
     ) throws IOException {
         String encodedCargo = URLEncoder.encode(cargo.trim(), StandardCharsets.UTF_8.name());
-        String source = (fonte == null || fonte.trim().isEmpty()) ? "google" : fonte.trim();
+        String source = (fonte == null || fonte.trim().isEmpty()) ? ApiConfig.DEFAULT_FONTE : fonte.trim();
         StringBuilder url = new StringBuilder(ApiConfig.BASE_URL)
                 .append("/carreira?cargo=").append(encodedCargo)
                 .append("&fonte=").append(source);
         appendIfPresent(url, "local", local);
         appendIfPresent(url, "modelo", modelo);
 
-        Request request = new Request.Builder()
-                .url(url.toString())
-                .get()
-                .header("Accept", "application/json")
-                .build();
+        Request request = apiGet(url.toString(), accessToken).build();
 
         try (Response response = client.newCall(request).execute()) {
             ResponseBody body = response.body();
             String raw = body != null ? body.string() : "";
-            if (!response.isSuccessful()) {
-                throw new IOException("API " + response.code() + ": " + truncate(raw));
-            }
+            throwIfUnsuccessful(response, raw);
             CareerAnalysis analysis = gson.fromJson(raw, CareerAnalysis.class);
             if (analysis == null || analysis.carreira == null || analysis.carreira.trim().isEmpty()) {
                 throw new IOException("Resposta da API sem carreira valida.");
@@ -81,7 +80,7 @@ public class WorkyApiClient {
 
     @NonNull
     public CareerAnalysis fetchCareer(@NonNull String cargo, @Nullable String fonte) throws IOException {
-        return fetchCareer(cargo, fonte, null, null);
+        return fetchCareer(cargo, fonte, null, null, null);
     }
 
     @NonNull
@@ -89,28 +88,23 @@ public class WorkyApiClient {
             @NonNull String cargo,
             @Nullable String fonte,
             @Nullable String local,
-            @Nullable String modelo
+            @Nullable String modelo,
+            @Nullable String accessToken
     ) throws IOException {
         String encodedCargo = URLEncoder.encode(cargo.trim(), StandardCharsets.UTF_8.name());
-        String source = (fonte == null || fonte.trim().isEmpty()) ? "google" : fonte.trim();
+        String source = (fonte == null || fonte.trim().isEmpty()) ? ApiConfig.DEFAULT_FONTE : fonte.trim();
         StringBuilder url = new StringBuilder(ApiConfig.BASE_URL)
                 .append("/buscar?cargo=").append(encodedCargo)
                 .append("&fonte=").append(source);
         appendIfPresent(url, "local", local);
         appendIfPresent(url, "modelo", modelo);
 
-        Request request = new Request.Builder()
-                .url(url.toString())
-                .get()
-                .header("Accept", "application/json")
-                .build();
+        Request request = apiGet(url.toString(), accessToken).build();
 
         try (Response response = client.newCall(request).execute()) {
             ResponseBody body = response.body();
             String raw = body != null ? body.string() : "";
-            if (!response.isSuccessful()) {
-                throw new IOException("API " + response.code() + ": " + truncate(raw));
-            }
+            throwIfUnsuccessful(response, raw);
             List<JobItem> jobs = gson.fromJson(raw, jobListType);
             return jobs != null ? jobs : new ArrayList<>();
         }
@@ -118,7 +112,48 @@ public class WorkyApiClient {
 
     @NonNull
     public List<JobItem> fetchJobs(@NonNull String cargo, @Nullable String fonte) throws IOException {
-        return fetchJobs(cargo, fonte, null, null);
+        return fetchJobs(cargo, fonte, null, null, null);
+    }
+
+    @Nullable
+    public SearchQuota fetchSearchQuota(@Nullable String accessToken) {
+        Request request = apiGet(ApiConfig.BASE_URL + "/carreira/quota", accessToken).build();
+        try (Response response = client.newCall(request).execute()) {
+            ResponseBody body = response.body();
+            String raw = body != null ? body.string() : "";
+            if (!response.isSuccessful() || raw.isEmpty()) return null;
+            JsonObject root = gson.fromJson(raw, JsonObject.class);
+            return SearchQuota.fromJson(root);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    @NonNull
+    public List<PublicCatalogCompany> fetchPublicCatalog() {
+        Request request = apiGet(ApiConfig.BASE_URL + "/catalogo/empresas", null).build();
+        try (Response response = client.newCall(request).execute()) {
+            ResponseBody body = response.body();
+            String raw = body != null ? body.string() : "";
+            if (!response.isSuccessful() || raw.isEmpty()) return new ArrayList<>();
+            JsonObject root = gson.fromJson(raw, JsonObject.class);
+            if (root == null || !root.has("empresas") || !root.get("empresas").isJsonArray()) {
+                return new ArrayList<>();
+            }
+            JsonArray rows = root.getAsJsonArray("empresas");
+            List<PublicCatalogCompany> companies = new ArrayList<>();
+            for (JsonElement el : rows) {
+                if (el == null || !el.isJsonObject()) continue;
+                PublicCatalogCompany company = gson.fromJson(el, PublicCatalogCompany.class);
+                if (company == null) continue;
+                if (company.id == null || company.id.trim().isEmpty()) continue;
+                if (company.name == null || company.name.trim().isEmpty()) continue;
+                companies.add(company);
+            }
+            return companies;
+        } catch (Exception e) {
+            return new ArrayList<>();
+        }
     }
 
     private static void appendIfPresent(StringBuilder url, String key, @Nullable String value) throws IOException {
@@ -143,9 +178,7 @@ public class WorkyApiClient {
         try (Response response = client.newCall(request).execute()) {
             ResponseBody responseBody = response.body();
             String raw = responseBody != null ? responseBody.string() : "";
-            if (!response.isSuccessful()) {
-                throw new IOException("API " + response.code() + ": " + truncate(raw));
-            }
+            throwIfUnsuccessful(response, raw);
             JsonObject root = gson.fromJson(raw, JsonObject.class);
             if (root == null || !root.has("match")) {
                 throw new IOException("Resposta da API sem campo match.");
@@ -179,8 +212,19 @@ public class WorkyApiClient {
         return careerFromJson(json);
     }
 
-    private static String truncate(String value) {
-        if (value == null) return "";
-        return value.length() > 180 ? value.substring(0, 180) + "..." : value;
+    private Request.Builder apiGet(@NonNull String url, @Nullable String accessToken) {
+        Request.Builder builder = new Request.Builder()
+                .url(url)
+                .get()
+                .header("Accept", "application/json");
+        if (accessToken != null && !accessToken.trim().isEmpty()) {
+            builder.header("Authorization", "Bearer " + accessToken.trim());
+        }
+        return builder;
+    }
+
+    private static void throwIfUnsuccessful(@NonNull Response response, @Nullable String raw) throws IOException {
+        if (response.isSuccessful()) return;
+        throw ApiException.from(response.code(), raw);
     }
 }

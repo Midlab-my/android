@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -103,12 +104,14 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
-                    android:hint="@string/hint_password">
+                    android:hint="@string/hint_password"
+                    app:endIconMode="password_toggle">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/inputCompanyPassword"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:autofillHints="newPassword"
                         android:inputType="textPassword"
                         android:maxLines="1"
                         android:textColor="@color/black" />
@@ -119,12 +122,14 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
-                    android:hint="@string/hint_password_confirm">
+                    android:hint="@string/hint_password_confirm"
+                    app:endIconMode="password_toggle">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/inputCompanyPasswordConfirm"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:autofillHints="newPassword"
                         android:inputType="textPassword"
                         android:maxLines="1"
                         android:textColor="@color/black" />

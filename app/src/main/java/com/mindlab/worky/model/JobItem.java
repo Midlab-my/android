@@ -4,6 +4,9 @@ import com.google.gson.annotations.SerializedName;
 
 public class JobItem {
 
+    @SerializedName("id")
+    public Object id;
+
     @SerializedName("titulo")
     public String titulo;
 
@@ -31,6 +34,12 @@ public class JobItem {
     @SerializedName("tag")
     public String tag;
 
+    @SerializedName("salario")
+    public String salario;
+
+    @SerializedName("tipoContrato")
+    public String tipoContrato;
+
     public String displayLocal() {
         if (localidade != null && !localidade.trim().isEmpty()) return localidade.trim();
         if (local != null && !local.trim().isEmpty()) return local.trim();
@@ -39,5 +48,11 @@ public class JobItem {
 
     public String displayTitle() {
         return titulo != null && !titulo.trim().isEmpty() ? titulo.trim() : "Vaga";
+    }
+
+    public boolean isWorkyJob() {
+        return destaqueWorky
+                || "Worky".equalsIgnoreCase(tag)
+                || "Worky".equalsIgnoreCase(fonte);
     }
 }

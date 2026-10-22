@@ -6,6 +6,10 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.WorkerThread;
 
+import com.google.gson.JsonObject;
+import com.mindlab.worky.data.CompanyRepository;
+import com.mindlab.worky.model.CompanyProfile;
+
 import java.io.IOException;
 
 /**
@@ -34,6 +38,11 @@ public class SessionManager {
         return store.isLoggedIn();
     }
 
+    public boolean isAuthenticated() {
+        AuthSession session = store.get();
+        return session != null && JwtAal.hasAal2(session.accessToken);
+    }
+
     public void clear() {
         store.clear();
     }
@@ -50,7 +59,7 @@ public class SessionManager {
             return null;
         }
         if (!session.isExpired()) {
-            return session;
+            return hydrateAccountType(session);
         }
         if (session.refreshToken == null || session.refreshToken.isEmpty()) {
             store.clear();
@@ -72,10 +81,49 @@ public class SessionManager {
                 );
             }
             store.save(refreshed);
-            return refreshed;
+            return hydrateAccountType(refreshed);
         } catch (IOException e) {
             store.clear();
             return null;
+        }
+    }
+
+    /**
+     * Conta da web sem account_type no JWT ainda e empresa se existir company_profiles.
+     */
+    @WorkerThread
+    @NonNull
+    public AuthSession hydrateAccountType(@NonNull AuthSession session) {
+        if (!JwtAal.hasAal2(session.accessToken)) {
+            return session;
+        }
+        if (session.isCompany() || "candidato".equals(session.accountType)) {
+            return session;
+        }
+        try {
+            CompanyProfile profile = new CompanyRepository().fetchCompanyProfile(session);
+            if (profile != null) {
+                AuthSession patched = session.withAccountType("empresa");
+                store.save(patched);
+                return patched;
+            }
+            JsonObject meta = auth.fetchUserMetadata(session);
+            String type = "";
+            if (meta.has("account_type") && meta.get("account_type").isJsonPrimitive()) {
+                type = meta.get("account_type").getAsString();
+            } else if (meta.has("accountType") && meta.get("accountType").isJsonPrimitive()) {
+                type = meta.get("accountType").getAsString();
+            }
+            if ("empresa".equalsIgnoreCase(type)) {
+                AuthSession patched = session.withAccountType("empresa");
+                store.save(patched);
+                return patched;
+            }
+            AuthSession candidato = session.withAccountType("candidato");
+            store.save(candidato);
+            return candidato;
+        } catch (IOException ignored) {
+            return session;
         }
     }
 
@@ -88,6 +136,16 @@ public class SessionManager {
         AuthSession session = ensureValidSession();
         if (session == null) {
             throw new IOException("Sessao expirada. Entre de novo.");
+        }
+        return session;
+    }
+
+    @WorkerThread
+    @NonNull
+    public AuthSession requireAal2Session() throws IOException {
+        AuthSession session = requireValidSession();
+        if (!JwtAal.hasAal2(session.accessToken)) {
+            throw new MfaRequiredException();
         }
         return session;
     }
